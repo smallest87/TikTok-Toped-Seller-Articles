@@ -37,7 +37,7 @@ function checkCurrentTabStatus(history) {
 
 // --- FUNGSI 2: RENDER DAFTAR RIWAYAT ---
 function renderList(history) {
-  checkCurrentTabStatus(history); // Update status bar
+  checkCurrentTabStatus(history); // Update status
 
   const container = document.getElementById('list-container');
   container.innerHTML = '';
@@ -51,7 +51,7 @@ function renderList(history) {
     return;
   }
 
-  // Data terbaru di paling atas
+  // Urutkan dari terbaru
   const reversedHistory = [...history].reverse();
 
   reversedHistory.forEach(item => {
@@ -81,17 +81,22 @@ function renderList(history) {
       paramsHtml = `<div class="empty-param">Format URL Invalid</div>`;
     }
 
-    // B. Breadcrumb
+    // B. Breadcrumb HTML
     const breadcrumbHtml = item.breadcrumb 
         ? `<div class="breadcrumb-text">📂 ${item.breadcrumb}</div>` 
         : '';
 
-    // C. Article Content Logic (Tombol & Preview)
+    // C. Article Date HTML
+    const articleDateHtml = item.articleDate 
+        ? `<div style="font-size:10px; color:#555; margin-bottom:6px;">📅 Rilis: <b>${item.articleDate}</b></div>` 
+        : '';
+
+    // D. Article Actions (Button & Preview)
     let openButtonHtml = '';
     let previewHtml = '';
 
     if (item.articleContent) {
-        // Tombol Buka di Tab Baru (Membawa timestamp sebagai ID)
+        // Tombol Buka Tab Baru (Per Artikel)
         openButtonHtml = `
           <button class="open-viewer-btn" data-id="${item.timestamp}">
             ↗️ Buka Artikel di Tab Baru
@@ -109,7 +114,7 @@ function renderList(history) {
         `;
     }
 
-    // D. Buat Card Element
+    // E. Render Card
     const card = document.createElement('div');
     card.className = 'card';
     const badgeColor = item.platformName === 'Tokopedia' ? '#03ac0e' : '#fe2c55';
@@ -122,6 +127,7 @@ function renderList(history) {
       
       <div class="card-body">
         ${breadcrumbHtml}
+        ${articleDateHtml}
         
         <div class="page-title">${item.title}</div>
         
@@ -138,13 +144,11 @@ function renderList(history) {
 
     container.appendChild(card);
 
-    // E. Event Listener untuk Tombol "Buka di Tab Baru"
-    // Kita tambahkan listener spesifik untuk tombol di dalam card ini
+    // Event Listener untuk Tombol Per Artikel
     const viewBtn = card.querySelector('.open-viewer-btn');
     if (viewBtn) {
         viewBtn.addEventListener('click', (e) => {
             const id = e.target.getAttribute('data-id');
-            // Buka viewer.html dengan parameter ID
             chrome.tabs.create({
                 url: chrome.runtime.getURL(`viewer.html?id=${id}`)
             });
@@ -155,27 +159,26 @@ function renderList(history) {
 
 // --- INITIALIZATION & LISTENERS ---
 
-// 1. Ambil data saat panel dibuka
+// 1. Init Load
 chrome.storage.local.get(['visitHistory'], (result) => {
-  const history = result.visitHistory || [];
-  renderList(history);
+  renderList(result.visitHistory);
 });
 
-// 2. Listener Storage Change
+// 2. Storage Changed
 chrome.storage.onChanged.addListener((changes, namespace) => {
   if (namespace === 'local' && changes.visitHistory) {
     renderList(changes.visitHistory.newValue);
   }
 });
 
-// 3. Listener Active Tab (untuk update status bar)
+// 3. Tab Activated (Update Status Box)
 chrome.tabs.onActivated.addListener(() => {
   chrome.storage.local.get(['visitHistory'], (result) => {
     checkCurrentTabStatus(result.visitHistory || []);
   });
 });
 
-// 4. Listener URL Update (untuk update status bar)
+// 4. Tab Updated (Update Status Box)
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status === 'complete' || changeInfo.url) {
     chrome.storage.local.get(['visitHistory'], (result) => {
@@ -184,9 +187,16 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   }
 });
 
-// Tombol Hapus Riwayat
+// 5. Tombol Buka SEMUA Artikel (Kompilasi)
+document.getElementById('openAllBtn').addEventListener('click', () => {
+  chrome.tabs.create({
+    url: chrome.runtime.getURL("viewer_all.html")
+  });
+});
+
+// 6. Tombol Hapus Riwayat
 document.getElementById('clearBtn').addEventListener('click', () => {
-  if(confirm("Hapus semua riwayat?")) {
+  if(confirm("Yakin ingin menghapus semua riwayat?")) {
     chrome.storage.local.set({ visitHistory: [] });
   }
 });

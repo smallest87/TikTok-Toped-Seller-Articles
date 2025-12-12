@@ -25,36 +25,27 @@ function getBreadcrumb() {
   return null; 
 }
 
-// --- FUNGSI BARU: AMBIL & BERSIHKAN KONTEN ARTIKEL ---
+// --- FUNGSI BARU: AMBIL TANGGAL ARTIKEL ---
+function getArticleDate() {
+  const dateElement = document.querySelector('.article-date');
+  return dateElement ? dateElement.innerText.trim() : null;
+}
+
 function getCleanArticleContent() {
-  // 1. Target elemen induk artikel
   const articleElement = document.querySelector('.article-main');
-  
   if (!articleElement) return null;
 
-  // 2. Clone elemen (PENTING: Agar halaman asli tidak terhapus)
   const clone = articleElement.cloneNode(true);
-
-  // 3. Daftar Selector yang ingin DIHAPUS (Dikecualikan)
   const selectorsToRemove = [
-    '.csat',                  // Feedback Section
-    '.knowledge-nav',         // Navigasi Next/Prev
-    '.recommended-articles',  // Artikel Rekomendasi
-    '.breadcrumb-nav',        // Breadcrumb (karena sudah diambil terpisah)
-    '.article-title',         // Judul (karena sudah diambil terpisah)
-    '.article-date',          // Tanggal (opsional, agar bersih)
-    '.toc-sidebar'            // Daftar isi (biasanya mengganggu di tampilan mobile/sidepanel)
+    '.csat', '.knowledge-nav', '.recommended-articles', 
+    '.breadcrumb-nav', '.article-title', '.article-date', '.toc-sidebar'
   ];
 
-  // 4. Hapus elemen-elemen tersebut dari Clone
   selectorsToRemove.forEach(selector => {
     const elements = clone.querySelectorAll(selector);
     elements.forEach(el => el.remove());
   });
 
-  // 5. Kembalikan HTML bersih
-  // .innerHTML akan mengambil struktur HTML (termasuk gambar, bold, list, tabel)
-  // .innerText jika Anda hanya ingin teks polos tanpa formatting
   return clone.innerHTML.trim(); 
 }
 
@@ -67,7 +58,6 @@ function captureAndSave() {
   chrome.storage.local.get(['visitHistory'], (result) => {
     let history = result.visitHistory || [];
     
-    // Cek Duplikat
     const isAlreadySaved = history.some(item => item.url === currentUrl);
     if (isAlreadySaved) {
         console.log("⛔ URL sudah ada. Skip.");
@@ -75,15 +65,15 @@ function captureAndSave() {
     }
 
     const platform = getPlatformInfo();
-    
-    // Ambil Data
     const breadcrumbData = getBreadcrumb();
-    const articleContentData = getCleanArticleContent(); // <--- Data Artikel Bersih
+    const articleDateData = getArticleDate(); // <--- Ambil Tanggal
+    const articleContentData = getCleanArticleContent();
 
     const dataPoint = {
       title: cleanTitle,
+      articleDate: articleDateData, // <--- Simpan Tanggal
       breadcrumb: breadcrumbData,
-      articleContent: articleContentData, // Simpan HTML Artikel
+      articleContent: articleContentData,
       url: currentUrl,
       platformName: platform.name,
       timestamp: Date.now(),
@@ -95,14 +85,14 @@ function captureAndSave() {
     history.push(dataPoint);
     
     chrome.storage.local.set({ visitHistory: history }, () => {
-      console.log("✅ Data Lengkap Tersimpan (dengan Artikel).");
+      console.log("✅ Data Tersimpan (Title, Date, Content).");
     });
   });
 }
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "URL_CHANGED") {
-    setTimeout(captureAndSave, 2000); // Naikkan timeout sedikit untuk load konten berat
+    setTimeout(captureAndSave, 2000);
   }
 });
 
