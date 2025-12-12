@@ -1,11 +1,9 @@
 // sidepanel.js
 
 // --- FUNGSI 1: CEK STATUS TAB AKTIF VS DATABASE ---
-// Menampilkan notifikasi apakah halaman yang sedang dibuka sudah tersimpan atau belum
 function checkCurrentTabStatus(history) {
   const statusBox = document.getElementById('status-box');
   
-  // Ambil Tab yang sedang aktif di window saat ini
   chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
     if (tabs.length === 0) return;
     
@@ -23,7 +21,6 @@ function checkCurrentTabStatus(history) {
         <span>Halaman ini sudah ada di database.</span>
       `;
     } else {
-      // Cek apakah ini halaman target (Tokopedia/TikTok)
       if (currentUrl && (currentUrl.includes('tokopedia.com') || currentUrl.includes('tiktok.com'))) {
           statusBox.style.display = 'flex';
           statusBox.className = 'status-new';
@@ -40,8 +37,7 @@ function checkCurrentTabStatus(history) {
 
 // --- FUNGSI 2: RENDER DAFTAR RIWAYAT ---
 function renderList(history) {
-  // Panggil fungsi cek status setiap kali render
-  checkCurrentTabStatus(history);
+  checkCurrentTabStatus(history); // Update status bar
 
   const container = document.getElementById('list-container');
   container.innerHTML = '';
@@ -55,10 +51,11 @@ function renderList(history) {
     return;
   }
 
+  // Data terbaru di paling atas
   const reversedHistory = [...history].reverse();
 
   reversedHistory.forEach(item => {
-    // A. Parsing URL untuk memisahkan Induk & Parameter
+    // A. Parsing URL
     let baseUrl = item.url;
     let paramsHtml = '';
     
@@ -68,7 +65,6 @@ function renderList(history) {
 
       const entries = Array.from(urlObj.searchParams.entries());
       if (entries.length > 0) {
-        // Buat Sub-List Group untuk Parameter
         paramsHtml = `<div class="list-group">`;
         entries.forEach(([key, value]) => {
           paramsHtml += `
@@ -85,17 +81,27 @@ function renderList(history) {
       paramsHtml = `<div class="empty-param">Format URL Invalid</div>`;
     }
 
-    // B. Breadcrumb HTML Check
+    // B. Breadcrumb
     const breadcrumbHtml = item.breadcrumb 
         ? `<div class="breadcrumb-text">📂 ${item.breadcrumb}</div>` 
         : '';
 
-    // C. Article Content HTML Check
-    let articleHtml = '';
+    // C. Article Content Logic (Tombol & Preview)
+    let openButtonHtml = '';
+    let previewHtml = '';
+
     if (item.articleContent) {
-        articleHtml = `
+        // Tombol Buka di Tab Baru (Membawa timestamp sebagai ID)
+        openButtonHtml = `
+          <button class="open-viewer-btn" data-id="${item.timestamp}">
+            ↗️ Buka Artikel di Tab Baru
+          </button>
+        `;
+
+        // Accordion Preview
+        previewHtml = `
           <details class="article-details">
-            <summary>📄 Lihat Isi Artikel</summary>
+            <summary>📄 Lihat Preview</summary>
             <div class="article-content-container">
               ${item.articleContent}
             </div>
@@ -103,7 +109,7 @@ function renderList(history) {
         `;
     }
 
-    // D. Buat Card
+    // D. Buat Card Element
     const card = document.createElement('div');
     card.className = 'card';
     const badgeColor = item.platformName === 'Tokopedia' ? '#03ac0e' : '#fe2c55';
@@ -125,11 +131,25 @@ function renderList(history) {
         <div class="section-label">Parameter Data</div>
         ${paramsHtml}
 
-        ${articleHtml}
+        ${openButtonHtml}
+        ${previewHtml}
       </div>
     `;
 
     container.appendChild(card);
+
+    // E. Event Listener untuk Tombol "Buka di Tab Baru"
+    // Kita tambahkan listener spesifik untuk tombol di dalam card ini
+    const viewBtn = card.querySelector('.open-viewer-btn');
+    if (viewBtn) {
+        viewBtn.addEventListener('click', (e) => {
+            const id = e.target.getAttribute('data-id');
+            // Buka viewer.html dengan parameter ID
+            chrome.tabs.create({
+                url: chrome.runtime.getURL(`viewer.html?id=${id}`)
+            });
+        });
+    }
   });
 }
 
@@ -141,21 +161,21 @@ chrome.storage.local.get(['visitHistory'], (result) => {
   renderList(history);
 });
 
-// 2. Listener jika ada perubahan data di storage (dari content.js)
+// 2. Listener Storage Change
 chrome.storage.onChanged.addListener((changes, namespace) => {
   if (namespace === 'local' && changes.visitHistory) {
     renderList(changes.visitHistory.newValue);
   }
 });
 
-// 3. Listener jika User Pindah Tab (Active Tab Changed)
+// 3. Listener Active Tab (untuk update status bar)
 chrome.tabs.onActivated.addListener(() => {
   chrome.storage.local.get(['visitHistory'], (result) => {
     checkCurrentTabStatus(result.visitHistory || []);
   });
 });
 
-// 4. Listener jika User Update URL di Tab yang sama
+// 4. Listener URL Update (untuk update status bar)
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status === 'complete' || changeInfo.url) {
     chrome.storage.local.get(['visitHistory'], (result) => {
