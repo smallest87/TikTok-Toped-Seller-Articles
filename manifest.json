@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "Marketplace Academy Tracker",
+  "version": "1.3",
+  "description": "Melacak riwayat navigasi Tokopedia & TikTok Shop Academy secara realtime.",
+  "permissions": [
+    "sidePanel",
+    "storage",
+    "tabs",
+    "webNavigation"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://seller-id.tokopedia.com/university/*",
+        "https://seller.tokopedia.com/edu/*",
+        "https://seller-id.tiktok.com/university/*",
+        "https://seller-id.tiktok.com/education/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
